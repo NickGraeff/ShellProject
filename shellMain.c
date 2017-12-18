@@ -26,7 +26,8 @@ typedef struct {
 
 void getAndDisplayUserInput (charVector *userInput, vectorVector *historyUserInput);
 void handleArrows (char arrowKey, charVector *userInput, vectorVector *historyUserInput);
-void parseInput ();
+void handleBackspaceandDelete (char userChar, charVector *userInput); 
+void parseInput (char *bufferCopy, char ****argumentMatrix);
 
 
 
@@ -56,9 +57,19 @@ int main () {
 		char *cwd = (char *) malloc(pathconf(".", _PC_PATH_MAX));
 		getcwd(cwd, pathconf(".", _PC_PATH_MAX));
 		printf("%s> ", cwd);
+		free(cwd);
 		getAndDisplayUserInput(&userInput, &historyUserInput);
 
+		//DEBUG
+		printf("\n%s <-0\n", userInput.buffer);
+
 		/* Place the user input into an array */
+		//NOTE MAKE SURE YOU FREE THIS MEMORY AT THE END OF THE LOOP
+		char *bufferCopy = (char *) calloc(userInput.lastPlaceInString+1, sizeof(char));
+		strcpy(bufferCopy, userInput.buffer);
+
+		char ***argumentMatrix;
+	//	parseInput(bufferCopy, &argumentMatrix);
 
 		/* Custom commands */
 
@@ -129,8 +140,8 @@ void getAndDisplayUserInput (charVector *userInput, vectorVector *historyUserInp
 		} 
 
 		/* The user entered backspace or delete */
-		else if () {
-
+		else if (userChar == 8  || userChar == 127 || userChar == 126) {
+			handleBackspaceandDelete(userChar, userInput);
 		}
 
 		/* Nothing special about the input, display and store the character and repeat */
@@ -143,12 +154,13 @@ void getAndDisplayUserInput (charVector *userInput, vectorVector *historyUserInp
 	}
 
 	/* NULL terminate the user's input */
-	userInput->buffer[userInput->place] = '\0';
+	userInput->buffer[userInput->lastPlaceInString+1] = '\0';
 
 	/* Reenable regular IO for the shell */
 	putchar('\n');
 	historyUserInput->placeInContext = 0;
 	historyUserInput->bufferOfBuffers[0] = *userInput;
+	historyUserInput->bufferOfBuffers[0].place = userInput->lastPlaceInString;
 	tcsetattr(0, TCSANOW, &origConfig);
 }
 
@@ -174,7 +186,7 @@ void handleArrows (char arrowKey, charVector *userInput, vectorVector *historyUs
 					++userInput->place;
 				}
 
-				/* Place whitespace everywhere before the end of the string and reset cursor position  */
+				/* Place whitespace everywhere before the end of the string and reset cursor position */
 				while (userInput->place) {
 					putchar('\b');
 					putchar(' ');
@@ -193,7 +205,7 @@ void handleArrows (char arrowKey, charVector *userInput, vectorVector *historyUs
 		case 'B':
 
 			/* Check if user has already navigated to the bottom of the list */
-			if (historyUserInput->placeInContext != 1) {
+			if (historyUserInput->placeInContext != 0) {
 				--historyUserInput->placeInContext;
 				
 				/* Place whitespace on the screen for the remainder of the string */
@@ -202,7 +214,7 @@ void handleArrows (char arrowKey, charVector *userInput, vectorVector *historyUs
 					++userInput->place;
 				}
 
-				/* Place whitespace everywhere before the end of the string and reset cursor position  */
+				/* Place whitespace everywhere before the end of the string and set cursor position to zero */
 				while (userInput->place) {
 					putchar('\b');
 					putchar(' ');
@@ -240,7 +252,116 @@ void handleArrows (char arrowKey, charVector *userInput, vectorVector *historyUs
 
 }
 
-void parseInput () {
+void handleBackspaceandDelete (char userChar, charVector *userInput) {
+
+	/* Check if user entered backspace */
+	if (userChar == 127) {
+
+		/* Check if the user has already navigated to the beginning of the string  */
+		if (userInput->place != 0) {
+			
+			/* Delete the character behind the cursor's position */
+			--userInput->place;
+			userInput->buffer[userInput->place] = ' ';
+			putchar('\b');
+			putchar(userInput->buffer[userInput->place]);
+			putchar('\b');
+
+			{
+				/* Shift all characters left one */
+				int i = userInput->place + 1;
+				while (i <= userInput->lastPlaceInString) {
+					userInput->buffer[i-1] = userInput->buffer[i];
+					putchar(userInput->buffer[i]);
+					++i;
+				}
+				putchar(' ');
+
+				/* Place cursor back at it's original position */
+				i = userInput->place;
+				while (i < userInput->lastPlaceInString) {
+					putchar('\b');
+					++i;
+				}
+				--userInput->lastPlaceInString;
+			}
+		} 
+	} 
+	
+	/* Otherwise the user entered delete */
+	else {
+
+		/* Check if the user has already navigated to the end of the string */
+		if (userInput->place != userInput->lastPlaceInString) {
+
+			/* Delete the character where the cursor is */
+			userInput->buffer[userInput->place] = ' ';
+			putchar(userInput->buffer[userInput->place]);
+			putchar('\b');
+
+			{
+				/* Shift all characters left one */
+				int i = userInput->place + 1;
+				while (i <= userInput->lastPlaceInString) {
+					userInput->buffer[i-1] = userInput->buffer[i];
+					putchar(userInput->buffer[i]);
+					++i;
+				}
+				putchar(' ');
+
+				/* Place the cursor back at its original position */
+				i = userInput->place;
+				while (i < userInput->lastPlaceInString) {
+					putchar('\b');
+					++i;
+				}
+				--userInput->lastPlaceInString;
+			}
+		}
+
+	}
+}
+
+void parseInput (char *bufferCopy, char ****argumentMatrix) {
+	int commandRow = 0;
+	int argRow = 0;
+	char *tokenPointer;
+	
+	/* We assume at first there are three commands max with one argument max each */
+	*argumentMatrix = (char ***) calloc(3, sizeof(char **));
+	{
+		int i = 0;
+		while (i < 3) {
+			*argumentMatrix[i] = (char **) calloc(3, sizeof(char *));
+			++i;
+		}
+	}
+
+	tokenPointer = strtok(bufferCopy, " ");
+	while (tokenPointer != NULL) {
+		int i = 0;
+		while (tokenPointer[i] != '\0') {
+			if (tokenPointer[i] == '|') {
+				tokenPointer[i] = '\0';
+				*argumentMatrix[commandRow][argRow] = NULL;
+				argRow = 0;
+				++commandRow;
+			}
+			++i;
+		}
+
+		//if () {
+
+		//} else {
+
+		//}
+
+
+
+	}
+
+
+
 
 }
 
