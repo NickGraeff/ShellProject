@@ -24,10 +24,23 @@ typedef struct {
 	int actualSize;
 } vectorVector;
 
+typedef struct {
+	char **args;
+	int actualSize;
+	int size;
+} commandMatrix;
+
+typedef struct {
+	commandMatrix *commands;
+	int actualSize;
+	int size;
+} executionMatrix;
+
 void getAndDisplayUserInput (charVector *userInput, vectorVector *historyUserInput);
 void handleArrows (char arrowKey, charVector *userInput, vectorVector *historyUserInput);
 void handleBackspaceandDelete (char userChar, charVector *userInput); 
-void parseInput (char *bufferCopy, char ****argumentMatrix);
+void parseInput (char *bufferCopy, executionMatrix *executionArray);
+void runTheProcesses (executionMatrix *executionArray);
 
 
 
@@ -60,21 +73,28 @@ int main () {
 		free(cwd);
 		getAndDisplayUserInput(&userInput, &historyUserInput);
 
-		//DEBUG
-		printf("\n%s <-0\n", userInput.buffer);
-
 		/* Place the user input into an array */
-		//NOTE MAKE SURE YOU FREE THIS MEMORY AT THE END OF THE LOOP
 		char *bufferCopy = (char *) calloc(userInput.lastPlaceInString+1, sizeof(char));
 		strcpy(bufferCopy, userInput.buffer);
 
-		char ***argumentMatrix;
-	//	parseInput(bufferCopy, &argumentMatrix);
+		executionMatrix executionArray;
+		parseInput(bufferCopy, &executionArray);
 
 		/* Custom commands */
 
-		/* Pass the input into the system  */
+		/* Pass the input into the system */
+		runTheProcesses(&executionArray);
 
+		/* Free the commands array from memory */
+		{
+			int i;
+			int j;
+			for (i = 0; i < executionArray.size; ++i) {
+				free(executionArray.commands[i].args);
+			}
+			free(executionArray.commands);
+			free(bufferCopy);
+		}
 	}
 
 
@@ -100,7 +120,7 @@ void getAndDisplayUserInput (charVector *userInput, vectorVector *historyUserInp
 		if (!(historyUserInput->bufferOfBuffers = realloc(historyUserInput->bufferOfBuffers, historyUserInput->size * sizeof(charVector)))) {
 			printf("\nHad an error allocating memory for some reason. Sorry mate.\n");
 			tcsetattr(0, TCSANOW, &origConfig);
-			exit(0);
+			exit(1);
 		}
 	}
 	
@@ -123,7 +143,7 @@ void getAndDisplayUserInput (charVector *userInput, vectorVector *historyUserInp
 			if (!(userInput->buffer = realloc(userInput->buffer, userInput->size))) {
 				printf("\nHad an error allocating memory for some reason. Sorry mate.\n");
 				tcsetattr(0, TCSANOW, &origConfig);
-				exit(0);
+				exit(1);
 			}
 
 			/* If user is at the bottom of the list, save their input */
@@ -322,46 +342,146 @@ void handleBackspaceandDelete (char userChar, charVector *userInput) {
 	}
 }
 
-void parseInput (char *bufferCopy, char ****argumentMatrix) {
+void parseInput (char *bufferCopy, executionMatrix *executionArray) {
 	int commandRow = 0;
-	int argRow = 0;
-	char *tokenPointer;
+	int argRow = 1;
+	char *spacesPointer;
+	char *pipePointer;
+	char *pipeAndSpacesPointer;
 	
 	/* We assume at first there are three commands max with one argument max each */
-	*argumentMatrix = (char ***) calloc(3, sizeof(char **));
+	executionArray->size = 3;
+	executionArray->actualSize = 0;
+	executionArray->commands = (commandMatrix *) calloc(executionArray->size, sizeof(commandMatrix));
 	{
 		int i = 0;
-		while (i < 3) {
-			*argumentMatrix[i] = (char **) calloc(3, sizeof(char *));
+		while (i < executionArray->size) {
+			executionArray->commands[i].size = 3;
+			executionArray->commands[i].actualSize = 0;
+			executionArray->commands[i].args = (char **) calloc(3, sizeof(char *));
 			++i;
 		}
 	}
 
-	tokenPointer = strtok(bufferCopy, " ");
-	while (tokenPointer != NULL) {
-		int i = 0;
-		while (tokenPointer[i] != '\0') {
-			if (tokenPointer[i] == '|') {
-				tokenPointer[i] = '\0';
-				*argumentMatrix[commandRow][argRow] = NULL;
-				argRow = 0;
-				++commandRow;
+	/* 
+	 * Parse the input by the spaces first and the pipes second 
+	 * Note that I did not use strtok because I did not see anyway
+	 * to use it with both symbols where the spaces were parsed
+	 * before the pipes
+	 */
+
+	/* pipePointer points at the first character in the string */
+	pipePointer = bufferCopy;				
+
+	/* Iterate through the string until the end is reached */
+	while (*pipePointer != '\0') {
+
+		/* spacesPointer initially points at the first non-space character in the string or after a pipe */
+		spacesPointer = pipePointer; 
+
+		/* If it does initially point at a non-space character, set the first command to this spot */
+		if (*spacesPointer != ' ') {
+			executionArray->commands[commandRow].args[0] = spacesPointer;
+		} 
+		
+		/* Otherwise, look for the first non-space character in the loop below */
+		else {
+			argRow = 0;
+		}
+
+		/* Search until the end of the string or a pipe is reached */
+		while (*spacesPointer != '\0' && *spacesPointer != '|') {
+
+			/* Check if the arguments array needs to be resized for the next argument */
+			if (argRow == executionArray->commands[commandRow].size-1) {
+				executionArray->commands[commandRow].size *= 2;
+				if (!(executionArray->commands[commandRow].args = realloc(executionArray->commands[commandRow].args, executionArray->commands[commandRow].size * sizeof(char *)))) {
+					printf("\nHad an error allocating memory for some reason. Sorry mate.\n");
+					exit(1);
+				}
 			}
-			++i;
+
+			/* If this character is the first non-space character after a space, set the next argument to this spot */
+			if (*(spacesPointer-1) == ' ' && *spacesPointer != ' ') {
+				executionArray->commands[commandRow].args[argRow] = spacesPointer;	
+				++argRow;
+			}
+
+			/* Check the next character */
+			++spacesPointer;
 		}
 
-		//if () {
+		/* Set the last argument to NULL and set the number of arguments */
+		executionArray->commands[commandRow].actualSize = argRow;
+		executionArray->commands[commandRow].args[argRow] = NULL;
 
-		//} else {
+		/* Check if the commands array needs to be resized for the next command */
+		if (commandRow == executionArray->size) {
+			executionArray->size *= 2;
+			if (!(executionArray->commands = realloc(executionArray->commands, executionArray->size * sizeof(commandMatrix)))) {
+				printf("\nHad an error allocating memory for some reason. Sorry mate.\n");
+				exit(1);
+			}
+		}
 
-		//}
+		/* Set the pipePointer to the pipe char or the NULL char position */
+		pipePointer = spacesPointer;
 
-
-
+		/* If the position just set is NULL, the loop will terminate, otherwise get the next char */
+		if (*pipePointer != '\0') {
+			++pipePointer;
+		}
+		
+		/* Reset the argument row and increment the command row */
+		argRow = 1;
+		++commandRow;
 	}
 
+	/* Set the number of commands found */
+	executionArray->actualSize = commandRow;
 
-
-
+	/* Place NULL characters in all the spots where a space or pipe was found */
+	pipeAndSpacesPointer = strtok(bufferCopy, " |");
+	while (pipeAndSpacesPointer != NULL) {
+		pipeAndSpacesPointer = strtok(NULL, " |");
+	}
 }
 
+void runTheProcesses (executionMatrix *executionArray) {
+	int pid;
+	int status;
+	int fd[2];
+	int inFile;
+	int i;
+	int numberOfPipes = executionArray->actualSize - 1;
+	
+	/* Go through each command and pipe its output to the next command if necessary */
+	for (i = 0; i < executionArray->actualSize; ++i) {
+		pipe(fd);
+		pid = fork();
+		if (pid == 0) {
+			if (numberOfPipes == 0) {
+				close(fd[0]);
+				close(fd[1]);
+			} else if (i == 0) {
+				close(1);
+				dup(fd[1]);
+				close(fd[0]);
+			} else if (i < numberOfPipes) {
+				close(0);
+				dup(inFile);
+				close(1);
+				dup(fd[1]);
+			} else {
+				close(0);
+				dup(inFile);
+				close(fd[1]);
+			}
+			execvp(executionArray->commands[i].args[0], executionArray->commands[i].args);
+			perror(executionArray->commands[i].args[0]);
+		}
+		waitpid(pid, &status, WUNTRACED);
+		close(fd[1]);
+		inFile = fd[0];
+	} 
+}
