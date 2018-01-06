@@ -58,8 +58,8 @@ But seriously here are <b>some</b> bugs that exist and <b>some</b> features I'd 
       <p>For parsing custom commands, the current method is to strcmp() the string entered by the user multiple times in an if-elseif-else chain until the correct command is found. This is horribly inefficient and a hash would do a much better job of it.</p>
     </li>
     <li>
-      <p>Commands History Implemented Poorly</p>
-      <p>The user's history of commands is currently stored in an array and each time the user adds a new command, the array copies each position to the next and places the newest commands in the [0] element. That's horrible. Clearly the commands history works a bit like a double-ended queue which is typically implemented with a linked list. Not only that but a linked list is just more efficient for this action. So ideally I would like to reimplement the commands history in this fashion.</p>
+      <del><p>Commands History Implemented Poorly</p>
+      <p>The user's history of commands is currently stored in an array and each time the user adds a new command, the array copies each position to the next and places the newest commands in the [0] element. That's horrible. Clearly the commands history works a bit like a double-ended queue which is typically implemented with a linked list. Not only that but a linked list is just more efficient for this action. So ideally I would like to reimplement the commands history in this fashion.</p></del>
     </li>
   </ul>
 
