@@ -8,7 +8,7 @@ CFLAGS = -Wall -g
 INCLUDES = -I../nsh
 
 # Define the source files
-SRCS = shellMain.c commands.c
+SRCS = shellMain.c commands.c customCommands.c
 
 # Define the object files
 OBJS = $(SRCS:.c=.o)

@@ -1,16 +1,10 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <sys/wait.h>
-#include <termios.h>
 #include "commands.h"
 
 static void 
 shiftRemainingCharactersLeft (charVector *userInput) {
 	
 	/* Shift all characters left one */
-	int i = userInput->place + 1;
+	int i = userInput->cursorPosition + 1;
 	while (i <= userInput->lastPlaceInString) {
 		userInput->buffer[i-1] = userInput->buffer[i];
 		putchar(userInput->buffer[i]);
@@ -19,7 +13,7 @@ shiftRemainingCharactersLeft (charVector *userInput) {
 	putchar(' ');
 
 	/* Place cursor back at it's original position */
-	i = userInput->place;
+	i = userInput->cursorPosition;
 	while (i < userInput->lastPlaceInString) {
 		putchar('\b');
 		++i;
@@ -30,28 +24,24 @@ static void
 clearInput (charVector *userInput) {
 
 	/* Place whitespace on the screen for the remainder of the string */
-	while (userInput->place < userInput->lastPlaceInString) {
+	while (userInput->cursorPosition < userInput->lastPlaceInString) {
 		putchar(' ');	
-		++userInput->place;
+		++userInput->cursorPosition;
 	}
 
 	/* Place whitespace everywhere before the end of the string and reset cursor position */
-	while (userInput->place) {
+	while (userInput->cursorPosition) {
 		putchar('\b');
 		putchar(' ');
 		putchar('\b');
-		--userInput->place;
-		--userInput->lastPlaceInString;
+		--userInput->cursorPosition;
 	}
+
+	userInput->cursorPosition = userInput->lastPlaceInString;
 }
 
 static void 
-handleArrows (char arrowKey, charVector *userInput, vectorVector *historyUserInput) {
-
-	/* If user is at the bottom of the list, save their input */
-	if (historyUserInput->placeInContext == 0) {
-		historyUserInput->bufferOfBuffers[0] = *userInput;
-	}
+handleArrows (char arrowKey, charVector **userInput, vectorVector *historyUserInput) {
 
 	switch (arrowKey) {
 
@@ -59,14 +49,14 @@ handleArrows (char arrowKey, charVector *userInput, vectorVector *historyUserInp
 		case 'A':
 
 			/* Check if user has already navigated to the top of the list */
-			if (historyUserInput->placeInContext != historyUserInput->actualSize-1) {
-				++historyUserInput->placeInContext;
-				
-				clearInput (userInput);
-				
-				*userInput = historyUserInput->bufferOfBuffers[historyUserInput->placeInContext];
+			if (historyUserInput->userHistoryIterator != historyUserInput->leastRecentUserInput) {
 
-				printf("%s", userInput->buffer);
+				clearInput (*userInput);
+				
+				historyUserInput->userHistoryIterator = historyUserInput->userHistoryIterator->prevInput;
+				*userInput = historyUserInput->userHistoryIterator;
+
+				printf("%s", (*userInput)->buffer);
 			}
 			break;
 
@@ -74,14 +64,14 @@ handleArrows (char arrowKey, charVector *userInput, vectorVector *historyUserInp
 		case 'B':
 
 			/* Check if user has already navigated to the bottom of the list */
-			if (historyUserInput->placeInContext != 0) {
-				--historyUserInput->placeInContext;
-				
-				clearInput (userInput);
-			
-				*userInput = historyUserInput->bufferOfBuffers[historyUserInput->placeInContext];
+			if (historyUserInput->userHistoryIterator != historyUserInput->mostRecentUserInput) {
 
-				printf("%s", userInput->buffer);
+				clearInput (*userInput);
+			
+				historyUserInput->userHistoryIterator = historyUserInput->userHistoryIterator->nextInput;
+				*userInput = historyUserInput->userHistoryIterator;
+
+				printf("%s", (*userInput)->buffer);
 			}
 			break;
 
@@ -89,9 +79,9 @@ handleArrows (char arrowKey, charVector *userInput, vectorVector *historyUserInp
 		case 'C':
 
 			/* Check if user has already navigated to the end of the string */
-			if (userInput->place != userInput->lastPlaceInString) {
-				putchar(userInput->buffer[userInput->place]);
-				++userInput->place;
+			if ((*userInput)->cursorPosition != (*userInput)->lastPlaceInString) {
+				putchar((*userInput)->buffer[(*userInput)->cursorPosition]);
+				++(*userInput)->cursorPosition;
 			}
 			break;
 
@@ -99,9 +89,9 @@ handleArrows (char arrowKey, charVector *userInput, vectorVector *historyUserInp
 		case 'D':
 
 			/* Check if user has already navigated to the beginning of the string */
-			if (userInput->place != 0) {
+			if ((*userInput)->cursorPosition != 0) {
 				putchar('\b');
-				--userInput->place;
+				--(*userInput)->cursorPosition;
 			}
 			break;
 	}
@@ -115,13 +105,13 @@ handleBackspaceandDelete (char userChar, charVector *userInput) {
 	if (userChar == 127) {
 
 		/* Check if the user has already navigated to the beginning of the string  */
-		if (userInput->place != 0) {
+		if (userInput->cursorPosition != 0) {
 			
 			/* Delete the character behind the cursor's position */
-			--userInput->place;
-			userInput->buffer[userInput->place] = ' ';
+			--userInput->cursorPosition;
+			userInput->buffer[userInput->cursorPosition] = ' ';
 			putchar('\b');
-			putchar(userInput->buffer[userInput->place]);
+			putchar(userInput->buffer[userInput->cursorPosition]);
 			putchar('\b');
 
 			shiftRemainingCharactersLeft (userInput);
@@ -133,11 +123,11 @@ handleBackspaceandDelete (char userChar, charVector *userInput) {
 	else {
 
 		/* Check if the user has already navigated to the end of the string */
-		if (userInput->place != userInput->lastPlaceInString) {
+		if (userInput->cursorPosition != userInput->lastPlaceInString) {
 
 			/* Delete the character where the cursor is */
-			userInput->buffer[userInput->place] = ' ';
-			putchar(userInput->buffer[userInput->place]);
+			userInput->buffer[userInput->cursorPosition] = ' ';
+			putchar(userInput->buffer[userInput->cursorPosition]);
 			putchar('\b');
 
 			shiftRemainingCharactersLeft (userInput);
@@ -147,7 +137,7 @@ handleBackspaceandDelete (char userChar, charVector *userInput) {
 }
 
 void 
-getAndDisplayUserInput (charVector *userInput, vectorVector *historyUserInput) {
+getAndDisplayUserInput (charVector **userInput, vectorVector *historyUserInput) {
 
 	/* Display the user's current directory */
 	{
@@ -166,41 +156,16 @@ getAndDisplayUserInput (charVector *userInput, vectorVector *historyUserInput) {
 	newConfig.c_cc[VTIME] = 2;
 	tcsetattr(0, TCSANOW, &newConfig);
 
-
-	if (historyUserInput->actualSize == historyUserInput->size) {
-		historyUserInput->size *= 2;
-		if (!(historyUserInput->bufferOfBuffers = realloc(historyUserInput->bufferOfBuffers, historyUserInput->size * sizeof(charVector)))) {
-			printf("\nHad an error allocating memory for some reason. Sorry mate.\n");
-			tcsetattr(0, TCSANOW, &origConfig);
-			exit(1);
-		}
-	}
-	
-	/* Store this new user input into the history  */
-	{
-		int i;
-		for (i = historyUserInput->actualSize; i > 0; --i) {
-			historyUserInput->bufferOfBuffers[i] = historyUserInput->bufferOfBuffers[i-1];
-		}
-	}
-	++historyUserInput->actualSize;
-	
-	
 	char userChar;
 	while ((userChar = getchar()) != '\n') {
 
 		/* The userInput buffer needs to be resized */
-		if (userInput->lastPlaceInString + 1 == userInput->size) {
-			userInput->size *= 2;
-			if (!(userInput->buffer = realloc(userInput->buffer, userInput->size))) {
+		if ((*userInput)->lastPlaceInString + 1 == (*userInput)->size) {
+			(*userInput)->size *= 2;
+			if (!((*userInput)->buffer = realloc((*userInput)->buffer, (*userInput)->size))) {
 				printf("\nHad an error allocating memory for some reason. Sorry mate.\n");
 				tcsetattr(0, TCSANOW, &origConfig);
 				exit(1);
-			}
-
-			/* If user is at the bottom of the list, save their input */
-			if (historyUserInput->placeInContext == 0) {
-				historyUserInput->bufferOfBuffers[0] = *userInput;
 			}
 		}
 
@@ -213,26 +178,24 @@ getAndDisplayUserInput (charVector *userInput, vectorVector *historyUserInput) {
 
 		/* The user entered backspace or delete */
 		else if (userChar == 8  || userChar == 127 || userChar == 126) {
-			handleBackspaceandDelete(userChar, userInput);
+			handleBackspaceandDelete(userChar, *userInput);
 		}
 
 		/* Nothing special about the input, display and store the character and repeat */
 		else {
 			putchar(userChar);
-			userInput->buffer[userInput->place] = userChar;
-			++userInput->place;
-			++userInput->lastPlaceInString;
+			(*userInput)->buffer[(*userInput)->cursorPosition] = userChar;
+			++(*userInput)->cursorPosition;
+			++(*userInput)->lastPlaceInString;
 		}
 	}
 
-	/* NULL terminate the user's input */
-	userInput->buffer[userInput->lastPlaceInString+1] = '\0';
+	/* NULL terminate the user's input and set cursor position to end of string */
+	(*userInput)->buffer[(*userInput)->lastPlaceInString+1] = '\0';
+	(*userInput)->cursorPosition = (*userInput)->lastPlaceInString;
 
 	/* Reenable regular IO for the shell */
 	putchar('\n');
-	historyUserInput->placeInContext = 0;
-	historyUserInput->bufferOfBuffers[0] = *userInput;
-	historyUserInput->bufferOfBuffers[0].place = userInput->lastPlaceInString;
 	tcsetattr(0, TCSANOW, &origConfig);
 }
 
@@ -340,6 +303,20 @@ parseInput (char *bufferCopy, executionMatrix *executionArray) {
 	while (pipeAndSpacesPointer != NULL) {
 		pipeAndSpacesPointer = strtok(NULL, " |");
 	}
+	
+	/* Allocate memory for each new string */
+	{
+		int i;
+		int j;
+		for (i = 0; i < executionArray->actualSize; ++i) {
+			for (j = 0; j < executionArray->commands[i].actualSize; ++j) {
+				char *temp = executionArray->commands[i].args[j];
+				executionArray->commands[i].args[j] = (char *) calloc(strlen(executionArray->commands[i].args[j]) + 1, sizeof(char));
+				strcpy(executionArray->commands[i].args[j], temp);
+			}
+		}
+	}
+
 }
 
 void 

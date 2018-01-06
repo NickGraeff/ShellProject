@@ -3,60 +3,73 @@
 #include <unistd.h>
 #include <string.h>
 #include "commands.h"
+#include "customCommands.h"
 
 int main () {
 	
 	int continueLoop = 1; //Loop variable controls program duration
 
 	/*Store the user's input in this vector struct */
-	charVector userInput;
-	userInput.size = 64;
+	charVector *userInput = (charVector *) calloc(1, sizeof(charVector));
+	userInput->size = 64;
+	userInput->lastPlaceInString = 0;
+	userInput->cursorPosition = 0;
+	userInput->buffer = (char *) calloc(userInput->size, sizeof(char));
+	userInput->nextInput = NULL;
+	userInput->prevInput = NULL;
 
 	/* Store the user's input in this vector of vectors struct */
 	vectorVector historyUserInput;
-	historyUserInput.size = 2;
-	historyUserInput.placeInContext = 0;
-	historyUserInput.actualSize = 0;
-	historyUserInput.bufferOfBuffers = (charVector *) calloc(historyUserInput.size, sizeof(charVector));
+	historyUserInput.size = 0;
+	historyUserInput.mostRecentUserInput = userInput;
+	historyUserInput.leastRecentUserInput = userInput;
+	historyUserInput.userHistoryIterator = userInput;
 
 	/* Begin the program */
 	while (continueLoop) {
-
-		/* Reset buffer values */
-		userInput.place = 0;
-		userInput.actualSize = 0;
-		userInput.lastPlaceInString = 0;
-		userInput.buffer = (char *) calloc(userInput.size, sizeof(char));
 
 		/* Get the user input */
 		getAndDisplayUserInput(&userInput, &historyUserInput);
 
 		/* Place the user input into an array */
-		char *bufferCopy = (char *) calloc(userInput.lastPlaceInString+1, sizeof(char));
-		strcpy(bufferCopy, userInput.buffer);
+		char *bufferCopy = (char *) calloc(userInput->lastPlaceInString + 1, sizeof(char));
+		strcpy(bufferCopy, userInput->buffer);
 
 		executionMatrix executionArray;
 		parseInput(bufferCopy, &executionArray);
 
 		/* Custom commands */
-		//Bad implementation of quit
-		if (!strcmp(executionArray.commands[0].args[0], "quit")) {
-			printf("Exiting the program...\n");
-			break;
-		}
+		checkForCustomCommands(&executionArray);
 
 		/* Pass the input into the system */
 		runTheProcesses(&executionArray);
 
-		/* Free the commands array from memory */
+		/* Free the commands array and their string representations from memory */
 		{
+			int i;
 			int j;
-			for (j = 0; j < executionArray.size; ++j) {
-				free(executionArray.commands[j].args);
+			for (i = 0; i < executionArray.size; ++i) {
+				for (j = 0; j < executionArray.commands[i].actualSize; ++j) {
+					free(executionArray.commands[i].args[j]);
+				}
+				free(executionArray.commands[i].args);
 			}
 			free(executionArray.commands);
 			free(bufferCopy);
 		}
+
+		/* Create a new userInput */
+		++historyUserInput.size;
+		userInput->nextInput = (charVector *) calloc(1, sizeof(charVector));
+		userInput = userInput->nextInput;
+		userInput->nextInput = NULL;
+		userInput->prevInput = historyUserInput.mostRecentUserInput;
+		historyUserInput.mostRecentUserInput = userInput;
+		historyUserInput.userHistoryIterator = userInput;
+		userInput->size = 64;
+		userInput->lastPlaceInString = 0;
+		userInput->cursorPosition = 0;
+		userInput->buffer = (char *) calloc(userInput->size, sizeof(char));
 	}
 
 	/* Free all the memory */

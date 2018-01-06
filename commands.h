@@ -1,17 +1,28 @@
-typedef struct {
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/wait.h>
+#include <termios.h>
+
+#ifndef COMMANDS_H
+#define COMMANDS_H
+
+typedef struct charVector charVector;
+struct charVector {
 	char *buffer;
 	int size;
-	int actualSize;
 	int lastPlaceInString;
-	int place;
-} charVector;
+	int cursorPosition;
+	charVector *prevInput;
+	charVector *nextInput;
+};
 
 typedef struct {
-	charVector *bufferOfBuffers;
+	charVector *mostRecentUserInput;
+	charVector *leastRecentUserInput;
+	charVector *userHistoryIterator;
 	int size;
-	int place;
-	int placeInContext;
-	int actualSize;
 } vectorVector;
 
 typedef struct {
@@ -31,7 +42,7 @@ typedef struct {
  * backspace, delete, and arrow keys. Returns userInput as well as user's input
  * history on a linefeed.
 */
-void getAndDisplayUserInput (charVector *userInput, vectorVector *historyUserInput);
+void getAndDisplayUserInput (charVector **userInput, vectorVector *historyUserInput);
 
 /* 
  * Parses user's input by spaces and pipe symbols. Returns an array containing
@@ -50,3 +61,5 @@ void parseInput (char *bufferCopy, executionMatrix *executionArray);
  * executionArray (the final position in the arguments array must be NULL).
 */
 void runTheProcesses (executionMatrix *executionArray);
+
+#endif /* COMMANDS_H */
