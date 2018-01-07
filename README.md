@@ -50,8 +50,8 @@ But seriously here are <b>some</b> bugs that exist and <b>some</b> features I'd 
       <p>All there is to do in this regard really is to add additional code which does what the corresponding button press should do. To remove this "bug", code could just be written to ignore unknown characters. Tabs are a little more complicated because we would like those to auto-complete our query but for now simply adding extra spaces correctly would be adequate. This shell only supports ASCII characters as well, so any unicode characters don't register correctly either. </p>
     </li>
     <li>
-      <p>Custom Commands Not Implemented</p>
-      <p>As of right now the only commands implemented are "quit". That's pretty bad.</p>
+      <del><p>Custom Commands Not Implemented</p>
+        <p>As of right now the only commands implemented are "quit". That's pretty bad.</p></del>
   </li>
     <li>
       <p>Custom Commands Inefficient</p>
