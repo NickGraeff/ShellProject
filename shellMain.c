@@ -2,12 +2,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+
+
+int continueLoop = 1; //Loop variable controls program duration
 #include "commands.h"
-#include "customCommands.h"
 
 int main () {
-	
-	int continueLoop = 1; //Loop variable controls program duration
 
 	/*Store the user's input in this vector struct */
 	charVector *userInput = (charVector *) calloc(1, sizeof(charVector));
@@ -38,11 +38,8 @@ int main () {
 		executionMatrix executionArray;
 		parseInput(bufferCopy, &executionArray);
 
-		/* Custom commands */
-		checkForCustomCommands(&executionArray);
-
 		/* Pass the input into the system */
-		runTheProcesses(&executionArray);
+		runTheProcesses(&executionArray, &historyUserInput);
 
 		/* Free the commands array and their string representations from memory */
 		{

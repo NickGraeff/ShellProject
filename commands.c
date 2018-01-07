@@ -1,4 +1,5 @@
 #include "commands.h"
+#include "customCommands.h"
 
 static void 
 shiftRemainingCharactersLeft (charVector *userInput) {
@@ -141,10 +142,15 @@ getAndDisplayUserInput (charVector **userInput, vectorVector *historyUserInput) 
 
 	/* Display the user's current directory */
 	{
+		/* The userName and hostName allocations aren't precise, just copy and pastes of cwd */
+		char *hostName = (char *) malloc(100);
+		char *userName = getlogin();
 		char *cwd = (char *) malloc(pathconf(".", _PC_PATH_MAX));
 		getcwd(cwd, pathconf(".", _PC_PATH_MAX));
-		printf("%s> ", cwd);
+		gethostname(hostName, 100);
+		printf("%s@%s:%s$ ", userName, hostName, cwd);
 		free(cwd);
+		free(hostName);
 	}
 	
 	/* Disable regular IO for the shell */
@@ -152,8 +158,8 @@ getAndDisplayUserInput (charVector **userInput, vectorVector *historyUserInput) 
 	tcgetattr(0, &origConfig);
 	struct termios newConfig = origConfig;
 	newConfig.c_lflag &= ~(ICANON|ECHO);
-	newConfig.c_cc[VMIN] = 10;
-	newConfig.c_cc[VTIME] = 2;
+	newConfig.c_cc[VMIN] = 1;
+	newConfig.c_cc[VTIME] = 0;
 	tcsetattr(0, TCSANOW, &newConfig);
 
 	char userChar;
@@ -176,7 +182,7 @@ getAndDisplayUserInput (charVector **userInput, vectorVector *historyUserInput) 
 
 		} 
 
-		/* The user entered backspace or delete */
+		/* The user entered backspace or delete, for whatever reason tilde (126) also acts as delete */
 		else if (userChar == 8  || userChar == 127 || userChar == 126) {
 			handleBackspaceandDelete(userChar, *userInput);
 		}
@@ -316,11 +322,18 @@ parseInput (char *bufferCopy, executionMatrix *executionArray) {
 			}
 		}
 	}
-
+	
+	/* If the userInput was empty, just point the first command at NULL */
+	if (executionArray->actualSize == 0) {
+		executionArray->commands[0].args[0] = (char *) calloc(1, sizeof(char));
+		executionArray->commands[0].args[0][0] = '\0';
+		executionArray->actualSize = 1;
+		executionArray->commands[0].actualSize = 1;
+	}
 }
 
 void 
-runTheProcesses (executionMatrix *executionArray) {
+runTheProcesses (executionMatrix *executionArray, vectorVector *historyUserInput) {
 	int pid;
 	int status;
 	int fd[2];
@@ -330,6 +343,12 @@ runTheProcesses (executionMatrix *executionArray) {
 	
 	/* Go through each command and pipe its output to the next command if necessary */
 	for (i = 0; i < executionArray->actualSize; ++i) {
+
+		/* Only accounts for empty user input, doesn't help for bash-like scripting */
+		if (checkForCustomCommands(executionArray, historyUserInput)) {
+			continue;
+		}
+
 		pipe(fd);
 		pid = fork();
 		if (pid == 0) {

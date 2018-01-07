@@ -60,6 +60,6 @@ void parseInput (char *bufferCopy, executionMatrix *executionArray);
  * Runs the processes provided by the user according to a properly formatted 
  * executionArray (the final position in the arguments array must be NULL).
 */
-void runTheProcesses (executionMatrix *executionArray);
+void runTheProcesses (executionMatrix *executionArray, vectorVector *historyUserInput);
 
 #endif /* COMMANDS_H */
