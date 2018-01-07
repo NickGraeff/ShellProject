@@ -68,7 +68,8 @@ But seriously here are <b>some</b> bugs that exist and <b>some</b> features I'd 
   <ul>
     <li>
       <p>Make tab auto-complete as is expected in most shells</p>
-      <p>I believe to do this manually (in C without external library support) you would need to have some knowledge of inodes and how file linking works.</p>
+      <del><p>I believe to do this manually (in C without external library support) you would need to have some knowledge of inodes and how file linking works.</p></del>
+      <p>Could probably do this just using <code>ls</code> and <code>grep</code> in some manner.</p>
     </li>
     <li>
       <p>Support for turning on or off certain features</p>
@@ -76,7 +77,7 @@ But seriously here are <b>some</b> bugs that exist and <b>some</b> features I'd 
     </li>
     <li>
       <p>Parsing/Expanding Commands</p>
-      <p>On a grander scale, such as interpreting a shell file, this will require a lot of effort and likely require a good amount of knowledge about compilers. However, on a smaller scale (simply implementing custom commands), this isn't as difficult. For example, when a user types "merge <file1> <file2> > <file3>" for example, ideally we would like to convert this into "cat file1 | cat file2" and then redirect the output from STDOUT to a file descriptor representing file3. As of right now this string manipulation this requires is incompatible with the way the strings are stored and later freed in memory. This is easily fixable and will be taken care of soon by me. </p>
+      <p>On a grander scale, such as interpreting a shell file, this will require a lot of effort and likely require a good amount of knowledge about compilers. However, on a smaller scale (simply implementing custom commands), this isn't as difficult. For example, when a user types "merge <file1> <file2> ... <fileN> > <fileN+1>" for example, ideally we would like to convert this into "cat file1 file2 ... fileN" and then redirect the output from STDOUT to a file descriptor representing fileN+1. <del>As of right now this string manipulation this requires is incompatible with the way the strings are stored and later freed in memory. This is easily fixable and will be taken care of soon by me.</del></p>
     </li>
   </ul>
 
