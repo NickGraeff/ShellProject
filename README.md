@@ -24,9 +24,7 @@ Use as many pipes as you like to redirect input to the next commands output.
 
 ### Unlimited input
 Type as much as you like and feel your heart strings get pulled as the program doesn't crash.
-<p align="center">
-  <img src="https://i.imgur.com/qmYs49G.png" style="height=100px; width=100px;">
-</p>
+<img src="https://i.imgur.com/qmYs49G.png" width="50%">![]()
 
 ### Support for custom commands
 As of right now the custom commands supported are:
@@ -36,7 +34,7 @@ As of right now the custom commands supported are:
 * `cd`
 * `quit`
 <p align="center">
-  <img src="https://i.imgur.com/hUyhriO.png">
+  <img src="https://i.imgur.com/hUyhriO.png" height=100px>
 </p>
 
 ## Built with
